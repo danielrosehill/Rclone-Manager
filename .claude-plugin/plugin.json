@@ -1,0 +1,13 @@
+{
+  "name": "rclone-manager",
+  "version": "0.1.0",
+  "description": "Routine rclone admin as agent skills: check the install, add, list, edit and delete remotes, add, list, edit and remove mounts (systemd user units), and look up the official rclone docs for any backend, command or flag.",
+  "author": {
+    "name": "Daniel Rosehill",
+    "email": "public@danielrosehill.com",
+    "url": "https://danielrosehill.com"
+  },
+  "repository": "https://github.com/danielrosehill/Rclone-Manager",
+  "license": "MIT",
+  "keywords": ["rclone", "cloud-storage", "remotes", "mounts", "fuse", "systemd", "google-drive", "s3", "r2", "sftp", "webdav"]
+}

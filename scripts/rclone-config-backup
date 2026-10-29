@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Copy rclone.conf into a git backup repo under <hostname>/, commit and push if it changed.
+# Settings come from env or ~/.config/rclone-manager/backup.env:
+#   RCLONE_BACKUP_REPO_DIR  local clone of the backup repo (required)
+#   RCLONE_BACKUP_AGE_TO    age recipient; if set, the config is stored encrypted as rclone.conf.age
+#   RCLONE_CONFIG           config path (default: what `rclone config file` reports)
+#   RCLONE_BACKUP_NO_PUSH   set to 1 to commit locally only
+set -euo pipefail
+ENV_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/rclone-manager/backup.env"
+[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+: "${RCLONE_BACKUP_REPO_DIR:?set RCLONE_BACKUP_REPO_DIR or create $ENV_FILE}"
+CONF="${RCLONE_CONFIG:-$(rclone config file | tail -1)}"
+[ -f "$CONF" ] || { echo "no rclone config at $CONF" >&2; exit 1; }
+HOST="$(hostname -s)"
+
+cd "$RCLONE_BACKUP_REPO_DIR"
+git remote get-url origin >/dev/null 2>&1 && [ "${RCLONE_BACKUP_NO_PUSH:-0}" != 1 ] && git pull -q --rebase || true
+mkdir -p "$HOST"
+
+# age output differs on every run, so compare a hash of the plaintext instead.
+NEW_SUM="$(sha256sum "$CONF" | cut -d' ' -f1)"
+OLD_SUM="$(cat "$HOST/rclone.conf.sha256" 2>/dev/null || true)"
+if [ "$NEW_SUM" = "$OLD_SUM" ]; then echo "unchanged: $CONF"; exit 0; fi
+
+if [ -n "${RCLONE_BACKUP_AGE_TO:-}" ]; then
+  age -r "$RCLONE_BACKUP_AGE_TO" -o "$HOST/rclone.conf.age" "$CONF"
+  rm -f "$HOST/rclone.conf"
+else
+  cp "$CONF" "$HOST/rclone.conf"
+fi
+echo "$NEW_SUM" > "$HOST/rclone.conf.sha256"
+git add -A "$HOST"
+git commit -q -m "rclone config backup: $HOST $(date -Iseconds)"
+if git remote get-url origin >/dev/null 2>&1 && [ "${RCLONE_BACKUP_NO_PUSH:-0}" != 1 ]; then git push -q; fi
+echo "backed up: $CONF -> $RCLONE_BACKUP_REPO_DIR/$HOST"
